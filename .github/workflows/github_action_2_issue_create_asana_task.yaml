@@ -4,6 +4,10 @@ name: Create Asana Task from GitHub Issue
 on:
   issues:
     types: [opened]
+    
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   create-asana-task:
@@ -52,7 +56,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `✅ Asana task created: [${result.data.name}](${taskUrl})\nTask ID: ${result.data.gid}`
+                body: `Asana task created: [${result.data.name}](${taskUrl})\nTask ID: ${result.data.gid}`
               });
             } else {
               console.error('Failed to create Asana task:', result);
