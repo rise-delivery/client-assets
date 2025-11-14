@@ -18,6 +18,7 @@ jobs:
         with:
           script: |
             // const fetch = require('node-fetch');
+            //const fetch = require('node-fetch');
 
             const issue = context.payload.issue;
             const asanaToken = process.env.ASANA_TOKEN;
@@ -52,7 +53,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `✅ Asana task created: [${result.data.name}](${taskUrl})`
+                body: `✅ Asana task created: [${result.data.name}](${taskUrl})\nTask ID: ${result.data.gid}`
               });
             } else {
               console.error('Failed to create Asana task:', result);
