@@ -1,0 +1,51 @@
+# .github/workflows/asana-pr-comment.yml
+name: Asana PR Notification and Section Move
+
+on:
+  pull_request:
+    types: [opened, closed, reopened, synchronize]
+
+jobs:
+  notify-asana:
+    runs-on: ubuntu-latest
+    name: Notify Asana on PR Status Change
+    steps:
+      - name: Add PR comment to Asana task
+        uses: Asana/comment-on-task-github-action@v1.2
+        id: addComment
+        with:
+          asana-secret: ${{ secrets.ASANA_SECRET }}
+          comment-text: "Pull Request: {{PR_NAME}} | Status: {{PR_STATE}} | URL: {{PR_URL}}"
+
+      - name: Move task to In Review (PR Opened)
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const prBody = context.payload.pull_request.body;
+
+            // Extract Asana task URL from PR description
+            const taskMatch = prBody.match(/https:\/\/app\.asana\.com\/0\/\d+\/(\d+)/);
+            if (!taskMatch) {
+              console.log('No Asana task URL found in PR description');
+              return;
+            }
+
+            const taskId = taskMatch[1];
+            console.log('Found Asana task ID:', taskId);
+
+      - name: Move task to Done (PR Merged)
+        if: github.event.action == 'closed' && github.event.pull_request.merged
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prBody = context.payload.pull_request.body;
+            const taskMatch = prBody.match(/https:\/\/app\.asana\.com\/0\/\d+\/(\d+)/);
+            if (!taskMatch) {
+              console.log('No Asana task URL found in PR description');
+              return;
+            }
+
+            const taskId = taskMatch[1];
+            console.log('Task merged - would move to Done:', taskId);
