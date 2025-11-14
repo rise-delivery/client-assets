@@ -1,0 +1,55 @@
+# .github/workflows/asana-track-commits.yml
+name: Track Commits in Asana
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  track-commits:
+    runs-on: ubuntu-latest
+    name: Update Asana Tasks from Commits
+    steps:
+      - name: Track commits in Asana
+        uses: actions/github-script@v6
+        env:
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+        with:
+          script: |
+            const fetch = require('node-fetch');
+            const asanaToken = process.env.ASANA_TOKEN;
+
+            // Get commits in the push
+            const commits = context.payload.commits;
+
+            for (const commit of commits) {
+              // Extract Asana task ID from commit message
+              const taskMatch = commit.message.match(/Asana\s+Task:\s+([\d]+)|#asana-([\d]+)/i);
+              if (!taskMatch) continue;
+
+              const taskId = taskMatch[1] || taskMatch[2];
+
+              // Add comment to Asana task
+              const commentData = {
+                data: {
+                  text: `✅ Commit: ${commit.message}\n\nAuthor: ${commit.author.name}\nURL: ${commit.url}`
+                }
+              };
+
+              const response = await fetch(`https://app.asana.com/api/1.0/tasks/${taskId}/stories`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${asanaToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(commentData)
+              });
+
+              if (response.ok) {
+                console.log(`Updated Asana task ${taskId} with commit info`);
+              } else {
+                console.error(`Failed to update task ${taskId}:`, await response.text());
+              }
+            }

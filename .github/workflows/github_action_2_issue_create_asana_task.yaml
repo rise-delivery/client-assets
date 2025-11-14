@@ -1,0 +1,59 @@
+# .github/workflows/asana-create-task-from-issue.yml
+name: Create Asana Task from GitHub Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-asana-task:
+    runs-on: ubuntu-latest
+    name: Create Asana Task
+    steps:
+      - name: Create task in Asana from GitHub Issue
+        uses: actions/github-script@v6
+        env:
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+          PROJECT_ID: ${{ secrets.ASANA_PROJECT_ID }}
+        with:
+          script: |
+            const fetch = require('node-fetch');
+
+            const issue = context.payload.issue;
+            const asanaToken = process.env.ASANA_TOKEN;
+            const projectId = process.env.PROJECT_ID;
+
+            // Create task in Asana
+            const taskData = {
+              data: {
+                name: `[GitHub Issue #${issue.number}] ${issue.title}`,
+                notes: `Description: ${issue.body}\n\nGitHub Issue: ${issue.html_url}`,
+                projects: [projectId]
+              }
+            };
+
+            const response = await fetch('https://app.asana.com/api/1.0/tasks', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${asanaToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(taskData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.data) {
+              console.log('Created Asana task:', result.data.gid);
+
+              // Add comment to GitHub issue with Asana task URL
+              const taskUrl = `https://app.asana.com/0/${projectId}/${result.data.gid}`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ Asana task created: [${result.data.name}](${taskUrl})`
+              });
+            } else {
+              console.error('Failed to create Asana task:', result);
+            }
