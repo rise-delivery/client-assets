@@ -1,0 +1,33 @@
+# .github/workflows/asana-attach-pr.yml
+name: Attach PR to Asana Task
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  attach-to-asana:
+    runs-on: ubuntu-latest
+    name: Attach PR to Asana
+    steps:
+      - name: Create PR attachment in Asana
+        uses: Asana/create-app-attachment-github-action@latest
+        with:
+          asana-secret: ${{ secrets.ASANA_SECRET }}
+
+      - name: Add PR to Asana task via comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prBody = context.payload.pull_request.body;
+            const pr = context.payload.pull_request;
+
+            // Extract Asana task URL
+            const taskMatch = prBody.match(/https:\/\/app\.asana\.com\/0\/\d+\/(\d+)/);
+            if (!taskMatch) {
+              console.log('No Asana task URL found in PR description');
+              return;
+            }
+
+            console.log('PR attached to Asana task ID:', taskMatch[1]);
+            console.log('PR URL:', pr.html_url);

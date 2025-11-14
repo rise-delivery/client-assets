@@ -1,0 +1,85 @@
+# .github/workflows/asana-complex-workflow.yml
+name: Comprehensive Asana Workflow
+
+on:
+  pull_request:
+    types: [opened, closed, reopened, review_requested]
+  issues:
+    types: [opened, closed]
+  issue_comment:
+    types: [created]
+
+env:
+  ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+  PROJECT_ID: ${{ secrets.ASANA_PROJECT_ID }}
+
+jobs:
+  handle-pr-events:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create attachment when PR opened
+        uses: Asana/create-app-attachment-github-action@latest
+        with:
+          asana-secret: ${{ secrets.ASANA_SECRET }}
+
+      - name: Add comment to Asana task
+        uses: Asana/comment-on-task-github-action@v1.2
+        with:
+          asana-secret: ${{ secrets.ASANA_SECRET }}
+          comment-text: "[GitHub] Pull Request {{PR_NAME}} - {{PR_STATE}}"
+
+  handle-issue-events:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update Asana task from issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+
+            if (action === 'opened') {
+              console.log('Creating new Asana task for issue:', issue.title);
+            } else if (action === 'closed') {
+              console.log('Marking Asana task as complete:', issue.number);
+            }
+
+  handle-section-move:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move task based on PR status
+        uses: actions/github-script@v6
+        env:
+          SECTION_IN_REVIEW: ${{ secrets.ASANA_SECTION_IN_REVIEW }}
+          SECTION_DONE: ${{ secrets.ASANA_SECTION_DONE }}
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const prBody = pr.body;
+            const action = context.payload.action;
+
+            // Extract Asana task URL
+            const taskMatch = prBody.match(/https:\/\/app\.asana\.com\/0\/(\d+)\/(\d+)/);
+            if (!taskMatch) {
+              console.log('No Asana task URL found');
+              return;
+            }
+
+            const projectId = taskMatch[1];
+            const taskId = taskMatch[2];
+
+            let targetSection = null;
+            if (action === 'opened' || action === 'reopened') {
+              targetSection = process.env.SECTION_IN_REVIEW;
+              console.log('Moving task to In Review section');
+            } else if (action === 'closed' && pr.merged) {
+              targetSection = process.env.SECTION_DONE;
+              console.log('Moving task to Done section');
+            }
+
+            if (targetSection) {
+              console.log(`Move task ${taskId} to section ${targetSection}`);
+            }
